@@ -8,7 +8,6 @@ const axios = require('axios')
 const api = axios.create({
   baseURL: process.env.FIREBASE_URL|| 'http://localhost:5001/siv-2021/us-central1/app/api',
 });
-
 const {
   userJoin,
   getCurrentUser,
