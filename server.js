@@ -6,7 +6,7 @@ const io = require('socket.io')(server)
 const cors = require('cors')
 const axios = require('axios')
 const api = axios.create({
-  baseURL: process.env.FIREBASE_URL|| 'http://localhost:5001/siv-2021/us-central1/app/api',
+  baseURL: 'https://us-central1-siv-2021.cloudfunctions.net/app/api',
 });
 const {
   userJoin,

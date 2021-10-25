@@ -1,1 +1,1 @@
-web: yarn start-firebase
+web: yarn dev
