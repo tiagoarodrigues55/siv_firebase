@@ -421,7 +421,8 @@ async function main(){
 
   }
   })
-  server.listen(3001)
+  server.listen(process.env.PORT || 3001)
+
 
 
 
