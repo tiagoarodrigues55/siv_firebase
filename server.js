@@ -8,6 +8,7 @@ const axios = require('axios')
 const api = axios.create({
   baseURL: 'https://us-central1-siv-2021.cloudfunctions.net/app/api',
 });
+
 const {
   userJoin,
   getCurrentUser,
@@ -98,10 +99,10 @@ async function main(){
     users.map(res=>res.representation_type === 'Delegado' ? delegates.push(res) : null)
 
     //Chat
-    socket.on('sendMessage', ({author, destiny, content})=>{
+    socket.on('sendMessage', ({author, destiny, content, date})=>{
       const Destiny = getCurrentUser(destiny)
-      messages.push({author, destiny, content})
-      api.post('/create/messages', {author, destiny, content})
+      messages.push({author, destiny, content, date})
+      api.post('/create/messages', {author, destiny, content, date})
       if(!Destiny){
         return
       }
@@ -115,11 +116,22 @@ async function main(){
         return
       }
       messages.map(msg=>{
+        console.log(msg)
         if(msg.author === user && msg.destiny === contat){
-          Messages.push({content: msg.content, my: 'mine'})
+          Messages.push({
+            position: 'right',
+            type: 'text',
+            text: msg.content,
+            date: msg.date || new Date().getTime(),
+        },)
         }
         if(msg.destiny === user && msg.author === contat){
-          Messages.push({content: msg.content, my: 'notMine'})
+          Messages.push({
+            position: 'left',
+            type: 'text',
+            text: msg.content,
+            date: msg.date || new Date(),
+        })
         }
       })
       socket.emit('setMessages', Messages)
@@ -409,7 +421,7 @@ async function main(){
 
   }
   })
-  server.listen(process.env.PORT || 3001)
+  server.listen(3001)
 
 
 
