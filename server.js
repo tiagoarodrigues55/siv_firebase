@@ -134,7 +134,8 @@ async function main(){
         })
         }
       })
-      socket.emit('setMessages', Messages)
+      socket.emit('setMessages', {contat, Messages})
+
     })
 
 
