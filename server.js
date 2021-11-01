@@ -46,8 +46,8 @@ async function main(){
   }
 
   io.on('connection', socket =>{
-
     socket.on('connected', ({username, representation_type})=>{
+      userJoin(socket.id, username)
       if(representation_type==="Mesa"){
         socket.join('Mesa')
       }
@@ -66,6 +66,29 @@ async function main(){
       if(representation_type==="Investidor"){
         socket.join('Investidor')
       }
+      const cache = {}
+      messages.map(msg=>{
+        if(msg.author === username){
+          !cache[msg.destiny]?cache[msg.destiny] = []:null
+          cache[msg.destiny].push({
+            position: 'right',
+            type: 'text',
+            text: msg.content,
+            date: msg.date || new Date().getTime(),
+        })
+  
+        }
+        if(msg.destiny === username){
+          !cache[msg.author]?cache[msg.author] = []:null
+          cache[msg.author].push({
+            position: 'left',
+            type: 'text',
+            text: msg.content,
+            date: msg.date || new Date(),
+        })
+        }
+      })
+      socket.emit('setCache', cache)
     })
 
     //Conexão
@@ -106,17 +129,34 @@ async function main(){
       if(!Destiny){
         return
       }
-      socket.to(Destiny.id).emit('newMessage', author)
+      const Messages = []
+      messages.map(msg=>{
+        if(msg.author === destiny && msg.destiny === author){
+          Messages.push({
+            position: 'right',
+            type: 'text',
+            text: msg.content,
+            date: msg.date || new Date().getTime(),
+        },)
+        }
+        if(msg.destiny === destiny && msg.author === author){
+          Messages.push({
+            position: 'left',
+            type: 'text',
+            text: msg.content,
+            date: msg.date || new Date(),
+        })
+        }
+      })
+      socket.to(Destiny.id).emit('newMessage', {author, Messages})
     })
-    socket.on('changeContat', ({contat, user})=>{
-
+    socket.on('changeContat', ({contat, user, cache})=>{
       let Messages = []
       if(!user){
         console.log('user is null')
         return
       }
       messages.map(msg=>{
-        console.log(msg)
         if(msg.author === user && msg.destiny === contat){
           Messages.push({
             position: 'right',
@@ -134,7 +174,12 @@ async function main(){
         })
         }
       })
-      socket.emit('setMessages', {contat, Messages})
+      if(!cache){
+        cache = []
+      }
+      if(Messages.length !== cache.length){
+        socket.emit('setMessages', {contat, Messages})
+      }
 
     })
 
