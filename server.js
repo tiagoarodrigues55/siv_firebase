@@ -317,7 +317,6 @@ async function main(){
         socket.emit('login', res.data)
       })
     })
-
     socket.on('getUsers', ()=>{
       socket.emit('getUsers', users)
     })
