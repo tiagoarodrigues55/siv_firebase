@@ -2,6 +2,7 @@ const users = [];
 
 // Join user to chat
 function userJoin(id, username) {
+  console.log(id, username)
   const user = { id, username };
   const have = [false]
   for(let i of users){

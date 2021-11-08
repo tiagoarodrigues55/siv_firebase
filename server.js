@@ -35,9 +35,9 @@ async function main(){
   let aplausos = []
   let speakers = []
   let postsPreview = []
-  let privateDocs = []
+  let privateDocs = await getToFirebase('/read/privateDocs');
   let delegates = []
-  let Docs = await getToFirebase('/read/docs');
+  let Docs = await getToFirebase('/read/publicDocs');
   let posts = await getToFirebase('/read/posts');
 
   const meet = {
@@ -46,7 +46,7 @@ async function main(){
   }
 
   io.on('connection', socket =>{
-    socket.on('connected', ({username, representation_type})=>{
+    socket.on('connected', ({username, representation_type, userId})=>{
       userJoin(socket.id, username)
       if(representation_type==="Mesa"){
         socket.join('Mesa')
@@ -60,11 +60,22 @@ async function main(){
       if(representation_type==="Delegado"){
         socket.join('Delegado')
       }
-      if(representation_type==="Imprensa"){
-        socket.join('Imprensa')
+      if(representation_type==="Jornalista"){
+        socket.join('Jornalista')
       }
       if(representation_type==="Investidor"){
         socket.join('Investidor')
+        api.get("/read/users").then(({data})=>{
+          
+          const delegates = data.filter(user=>user.representation_type==="Delegado")
+          socket.emit('getDelegates', delegates)
+        }).catch(err=>console.log(err))
+        socket.emit('getCurrentMoney', async ()=>{
+          const user = await api.get(`/read/users/${userId}`).catch(err=>console.log(err))
+          console.log('getCurrentMoney',user.data.sivcoins)
+          socket.emit('getCurrentMoney', user.data.sivcoins)
+        })
+        getPositions(userId)
       }
       const cache = {}
       messages.map(msg=>{
@@ -88,6 +99,13 @@ async function main(){
         })
         }
       })
+      socket.emit('PreviousEmits', {
+        speechesList,
+        posts,
+        lastVote,
+        Docs,
+      })
+      socket.emit("setPrivateDocs", privateDocs)
       socket.emit('setCache', cache)
     })
 
@@ -96,12 +114,6 @@ async function main(){
 
     //Emits
 
-    socket.emit('PreviousEmits', {
-      speechesList,
-      posts,
-      lastVote,
-      Docs,
-    })
 
 
     if(meet.room !== ''){
@@ -124,8 +136,9 @@ async function main(){
     //Chat
     socket.on('sendMessage', ({author, destiny, content, date})=>{
       const Destiny = getCurrentUser(destiny)
+      console.log(Destiny)
       messages.push({author, destiny, content, date})
-      api.post('/create/messages', {author, destiny, content, date})
+      api.post('/create/messages', {author, destiny, content, date}).catch(err=>console.log(err))
       if(!Destiny){
         return
       }
@@ -223,7 +236,7 @@ async function main(){
     //Imprensa
     socket.on('post', file=>{
       posts.push(file)
-      api.post('/create/posts', file)
+      api.post('/create/posts', file).catch(err=>console.log(err))
       io.emit('posts', posts)
     })
 
@@ -247,21 +260,23 @@ async function main(){
       againsts = []
       lastVote = vote
       vote.title = voteTitle
-      api.post('/create/votes', vote)
+      api.post('/create/votes', vote).catch(err=>console.log(err))
       io.emit('finishVote', vote)
     })
 
   
     //Docs
     socket.on('newPrivateDoc', doc=>{
-      privateDocs.push(doc)
-      io.emit("setPrivateDocs", privateDocs)
+      console.log('newDocs: ', doc)
       io.emit("newDoc", doc)
+      privateDocs.push(doc)
+      api.post('/create/privateDocs', doc).catch(err=>console.log(err))
+      socket.emit("setPrivateDocs", privateDocs)
     })
     socket.on('newPublicDoc', doc=>{
       io.emit("newDoc", doc)
       Docs.push(doc)
-      api.post('/create/docs', doc)
+      api.post('/create/publicDocs', doc).catch(err=>console.log(err))
       io.emit("setPublicDocs", Docs)
     })
 
@@ -309,13 +324,13 @@ async function main(){
 
     //login
     socket.on('Cadastro', user=>{
-      api.post('/create/users', user)
+      api.post('/create/users', user).catch(err=>console.log(err))
     })
 
     socket.on('login', user=>{
       api.post('/auth', user).then(res=>{
         socket.emit('login', res.data)
-      })
+      }).catch(err=>console.log(err))
     })
     socket.on('getUsers', ()=>{
       socket.emit('getUsers', users)
@@ -340,7 +355,7 @@ async function main(){
 
     //investidor
     socket.on('getCurrentMoney', async (userId)=>{
-      const user = await api.get(`/read/users/${userId}`)
+      const user = await api.get(`/read/users/${userId}`).catch(err=>console.log(err))
       console.log('getCurrentMoney',user.data.sivcoins)
       socket.emit('getCurrentMoney', user.data.sivcoins)
     })
@@ -348,8 +363,8 @@ async function main(){
       getPositions(userId)
     })
     socket.on('BuyDelegate', async({quantity, value, delegateId, userId, buy=true})=>{
-      const userResponse = await api.get(`/read/users/${userId}`)
-      const delegateResponse = await api.get(`/read/users/${delegateId}`)
+      const userResponse = await api.get(`/read/users/${userId}`).catch(err=>console.log(err))
+      const delegateResponse = await api.get(`/read/users/${delegateId}`).catch(err=>console.log(err))
       const user = userResponse.data
       const delegate = delegateResponse.data
       const total = Number((quantity * value).toFixed(2))
@@ -372,9 +387,9 @@ async function main(){
       delegate.price = newPrice.toFixed(2)
       delegate.lastValorization = buy?delegate.price - newPrice:delegate.price + newPrice
 
-      await api.put(`update/users/${userId}`, user)
-      await api.put(`update/users/${delegateId}`, delegate)
-      users = await api.get(`/read/users`)
+      await api.put(`update/users/${userId}`, user).catch(err=>console.log(err))
+      await api.put(`update/users/${delegateId}`, delegate).catch(err=>console.log(err))
+      users = await api.get(`/read/users`).catch(err=>console.log(err))
       const delegates = []
       users.data.map(res=>res.representation_type === 'Delegado' ? delegates.push(res) : null)
       socket.emit('getDelegates', delegates)
@@ -385,7 +400,7 @@ async function main(){
     api.get("/read/users").then(({data})=>{
       const delegates = data.filter(user=>user.representation_type==="Delegado")
       socket.emit('getDelegates', delegates)
-    })
+    }).catch(err=>console.log(err))
   })
   socket.on('joinApplauses', ()=>{joinApplauses(aplausos)})
   function joinApplauses(applauses){
@@ -409,8 +424,8 @@ async function main(){
     socket.emit('joinApplauses', joinApplauses) 
   }
   async function getPositions(userId){
-    const user = await api.get(`/read/users/${userId}`)
-    const users = await api.get(`/read/users`)
+    const user = await api.get(`/read/users/${userId}`).catch(err=>console.log(err))
+    const users = await api.get(`/read/users`).catch(err=>console.log(err))
     const positions = []
     user.data.positions.map(position=>{
       users.data.map(us=>{
@@ -430,7 +445,7 @@ async function main(){
     socket.emit('getPositions', positions)
   }
   async function updatePoints(){
-    const responseUsers = await api.get("/read/users")
+    const responseUsers = await api.get("/read/users").catch(err=>console.log(err))
     const users = responseUsers.data
     const delegates = users.filter(user=>user.representation_type==="Delegado")
     const investidores = users.filter(user=>user.representation_type==="Investidor")
@@ -445,7 +460,7 @@ async function main(){
       delegate.points += newPoints
       const now = new Date().getTime()
       delegate.historyPrice.push({points: newPoints, price: delegate.price, date:now})
-      await api.put(`update/users/${delegate.id}`, delegate)
+      await api.put(`update/users/${delegate.id}`, delegate).catch(err=>console.log(err))
       socket.emit('getDelegates', delegates)
     }
     for(let investidor of investidores){
@@ -460,7 +475,7 @@ async function main(){
         totalPoints += (newPoints * (quantity / stockTotal))
       })
       investidor.points += totalPoints
-      await api.put(`update/users/${investidor.id}`, investidor)
+      await api.put(`update/users/${investidor.id}`, investidor).catch(err=>console.log(err))
 
     }
 
