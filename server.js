@@ -45,6 +45,8 @@ async function main(){
     password: ''
   }
 
+  
+
   io.on('connection', socket =>{
     console.log('connection')
     socket.on('connected', ({username, representation_type, userId})=>{
