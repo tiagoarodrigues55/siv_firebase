@@ -380,6 +380,8 @@ async function main(){
       io.emit('live', link)
     })
 
+
+    
     //investidor
     socket.on('getCurrentMoney', async (userId)=>{
       const user = await api.get(`/read/users/${userId}`).catch(err=>console.log(err))
