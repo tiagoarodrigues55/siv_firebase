@@ -46,7 +46,9 @@ async function main(){
   }
 
   io.on('connection', socket =>{
+    console.log('connection')
     socket.on('connected', ({username, representation_type, userId})=>{
+      console.log('connected')
       userJoin(socket.id, username)
       if(representation_type==="Mesa"){
         socket.join('Mesa')
@@ -135,8 +137,8 @@ async function main(){
 
     //Chat
     socket.on('sendMessage', ({author, destiny, content, date})=>{
+      console.log('sendMessage')
       const Destiny = getCurrentUser(destiny)
-      console.log(Destiny)
       messages.push({author, destiny, content, date})
       api.post('/create/messages', {author, destiny, content, date}).catch(err=>console.log(err))
       if(!Destiny){
@@ -164,6 +166,7 @@ async function main(){
       socket.to(Destiny.id).emit('newMessage', {author, Messages})
     })
     socket.on('changeContat', ({contat, user, cache})=>{
+      console.log('changeContat')
       let Messages = []
       if(!user){
         console.log('user is null')
@@ -201,20 +204,24 @@ async function main(){
     //Lista de Discursos
 
     socket.on('newSubscribe', representation =>{
+      console.log('newSubscribe')
       speechesList.push(representation)
       io.emit('setSpeechesList', speechesList)
     })
     socket.on('removeSubscribe', () =>{
+      console.log('removeSubscribe')
       speechesList.shift()
       io.emit('setSpeechesList', speechesList)
     })
 
     //Questões e Moções
     socket.on('newAction', action=>{
+      console.log('newAction')
       actions.push(action)
       io.to('Mesa').emit('setActions', actions)
     })
     socket.on('removeAction', action=>{
+      console.log('removeAction')
       actions = actions.filter(filter)
       if(!actions[0]){
         console.log([])
@@ -235,6 +242,7 @@ async function main(){
 
     //Imprensa
     socket.on('post', file=>{
+      console.log('post')
       posts.push(file)
       api.post('/create/posts', file).catch(err=>console.log(err))
       io.emit('posts', posts)
@@ -243,19 +251,23 @@ async function main(){
     //Votes
 
     socket.on('newVote', vote=>{
+      console.log('newVote')
       io.emit('newVote', vote)
       voteTitle = vote.title
     })
     
     socket.on('responseY', representation=>{
+      console.log('responseY')
       favorables.push(representation)
       io.emit('favorables', favorables)
     })
     socket.on('responseN', representation=>{
+      console.log('responseN')
       againsts.push(representation)
       io.emit('againsts', againsts)
     })
     socket.on('finishVote', vote=>{
+      console.log('finishVote')
       favorables = []
       againsts = []
       lastVote = vote
@@ -267,13 +279,14 @@ async function main(){
   
     //Docs
     socket.on('newPrivateDoc', doc=>{
-      console.log('newDocs: ', doc)
+      console.log('newPrivateDoc: ', doc)
       io.emit("newDoc", doc)
       privateDocs.push(doc)
       api.post('/create/privateDocs', doc).catch(err=>console.log(err))
       socket.emit("setPrivateDocs", privateDocs)
     })
     socket.on('newPublicDoc', doc=>{
+      console.log('newPublicDoc')
       io.emit("newDoc", doc)
       Docs.push(doc)
       api.post('/create/publicDocs', doc).catch(err=>console.log(err))
@@ -283,17 +296,21 @@ async function main(){
     //Cronometro
 
     socket.on('startStop', (status)=>{
+      console.log('startStop')
       io.emit('chronometer', status)
     })
     socket.on('reset', ()=>{
+      console.log('reset')
       io.emit('reset')
     })
     socket.on('setSpeechesTime', (time)=>{
+      console.log('setSpeechesTime')
       io.emit('setSpeechesTime', time)
     })
     //PostsPreview
 
     socket.on('postsPreview', post=>{
+      console.log('postPreview')
       postsPreview.push(post)
       io.to("Chefe de imprensa").emit('setPostsPreview', postsPreview)
     })
@@ -324,20 +341,24 @@ async function main(){
 
     //login
     socket.on('Cadastro', user=>{
+      console.log('Cadastro')
       api.post('/create/users', user).catch(err=>console.log(err))
     })
 
     socket.on('login', user=>{
+      console.log('login')
       api.post('/auth', user).then(res=>{
         socket.emit('login', res.data)
       }).catch(err=>console.log(err))
     })
     socket.on('getUsers', ()=>{
+      console.log('getUsers')
       socket.emit('getUsers', users)
     })
 
     //jitsi
     socket.on("changeSpeaker", ({id, participants})=>{
+      console.log('changeSpeaker')
       const participant = participants.find(part=>part.participantId === id.id)
       if(speaker !== participant.displayName){
         const now = new Date().getTime()
@@ -353,6 +374,12 @@ async function main(){
       aplausos.push({speaker, date: now})
     })
 
+    //Intervenção
+    socket.on('live', (link)=>{
+      console.log('live')
+      io.emit('live', link)
+    })
+
     //investidor
     socket.on('getCurrentMoney', async (userId)=>{
       const user = await api.get(`/read/users/${userId}`).catch(err=>console.log(err))
@@ -360,15 +387,20 @@ async function main(){
       socket.emit('getCurrentMoney', user.data.sivcoins)
     })
     socket.on('getPositions', async (userId)=>{
+      console.log('getPositions')
       getPositions(userId)
     })
     socket.on('BuyDelegate', async({quantity, value, delegateId, userId, buy=true})=>{
+      console.log('buyDelegates')
       const userResponse = await api.get(`/read/users/${userId}`).catch(err=>console.log(err))
       const delegateResponse = await api.get(`/read/users/${delegateId}`).catch(err=>console.log(err))
       const user = userResponse.data
       const delegate = delegateResponse.data
       const total = Number((quantity * value).toFixed(2))
-      console.log(user.sivcoins, total)
+
+      if(user.sivcoins < total){
+        return
+      }
       user.sivcoins = buy?(Number(user.sivcoins) - total).toFixed(2):(Number(user.sivcoins) + total).toFixed(2)
       console.log(`sivcoins: ${user.sivcoins}`)
       position = user.positions.find(position=>position.id === delegateId)
@@ -397,6 +429,7 @@ async function main(){
       getPositions(userId)
   })
   socket.on('getDelegates', ()=>{
+    console.log('getDelegates')
     api.get("/read/users").then(({data})=>{
       const delegates = data.filter(user=>user.representation_type==="Delegado")
       socket.emit('getDelegates', delegates)
@@ -404,6 +437,7 @@ async function main(){
   })
   socket.on('joinApplauses', ()=>{joinApplauses(aplausos)})
   function joinApplauses(applauses){
+    console.log('joinApplauses')
     const joinApplauses = []
     let lastSpeaker = ''
     let count = 0
