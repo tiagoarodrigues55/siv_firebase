@@ -351,35 +351,40 @@ async function main(){
       console.log('getCurrentMoney',user.data.sivcoins)
       socket.emit('getCurrentMoney', user.data.sivcoins)
     })
-    socket.on('getPositions', async (userId)=>{
-      console.log('getPositions')
-      getPositions(userId)
-    })
+    // socket.on('getPositions', async (userId)=>{
+    //   console.log('getPositions')
+    //   getPositions(userId)
+    // })
     socket.on('BuyDelegate', async({quantity, value, delegateId, userId, buy=true})=>{
-      console.log('buyDelegates')
+      console.log('buyDelegates', quantity)
       const userResponse = await api.get(`/read/users/${userId}`).catch(err=>console.log(err))
       const delegateResponse = await api.get(`/read/users/${delegateId}`).catch(err=>console.log(err))
       const user = userResponse.data
       const delegate = delegateResponse.data
       const total = Number((quantity * value).toFixed(2))
-
+      if(typeof(user.sivcoins)!==Number){
+        user.sivcoins = 10000
+      }
       if(user.sivcoins < total){
         return
       }
-      user.sivcoins = buy?(Number(user.sivcoins) - total).toFixed(2):(Number(user.sivcoins) + total).toFixed(2)
+      user.sivcoins = buy?(Number(user.sivcoins || 10000) - total).toFixed(2):(Number(user.sivcoins) + total).toFixed(2)
       console.log(`sivcoins: ${user.sivcoins}`)
       position = user.positions.find(position=>position.id === delegateId)
     
       if(position){
-        if(!buy && position.quantity - 1<1){
+        if(!buy && position.quantity - quantity<1){
           user.positions.splice(user.positions.indexOf(position), 1)
         }else{
-        user.positions[user.positions.indexOf(position)] = buy?{id: delegateId, quantity: position.quantity + 1}:{id: delegateId, quantity: position.quantity - 1}
+        user.positions[user.positions.indexOf(position)] = buy?{id: delegateId, quantity: position.quantity + quantity}:{id: delegateId, quantity: position.quantity - quantity}
         }
       }else{
-        user.positions.push({id: delegateId, quantity: 1})
+        user.positions.push({id: delegateId, quantity})
       }
       delegate.stock = buy?delegate.stock - quantity:delegate.stock + quantity
+      if(typeof(delegate.price)!==Number){
+        delegate.price = 10
+      }
       const newPrice = getPrice(delegate.price, delegate.stock, buy)
       delegate.price = newPrice.toFixed(2)
       delegate.lastValorization = buy?delegate.price - newPrice:delegate.price + newPrice
@@ -391,7 +396,8 @@ async function main(){
       users.data.map(res=>res.representation_type === 'Delegado' ? delegates.push(res) : null)
       socket.emit('getDelegates', delegates)
       socket.emit('getCurrentMoney', user.sivcoins)
-      getPositions(userId)
+      // getPositions(userId)
+      socket.emit('getPositions')
   })
   socket.on('getDelegates', ()=>{
     console.log('getDelegates')
