@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "nodemon server.js",
+    "start": "node server.js",
     "start-firebase": "firebase emulators:start",
     "start-server": "node server.js"
   },

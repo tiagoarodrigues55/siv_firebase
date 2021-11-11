@@ -3,6 +3,13 @@ const express = require('express')
 const app = express()
 const server = require('http').createServer(app)
 const io = require('socket.io')(server)
+
+io.engine.on("connection_error", (err) => {
+  console.log(err.req);      // the request object
+  console.log(err.code);     // the error code, for example 1
+  console.log(err.message);  // the error message, for example "Session ID unknown"
+  console.log(err.context);  // some additional error context
+});
 const cors = require('cors')
 const axios = require('axios')
 const api = axios.create({
@@ -81,28 +88,6 @@ async function main(){
         })
         getPositions(userId)
       }
-      const cache = {}
-      messages.map(msg=>{
-        if(msg.author === username){
-          !cache[msg.destiny]?cache[msg.destiny] = []:null
-          cache[msg.destiny].push({
-            position: 'right',
-            type: 'text',
-            text: msg.content,
-            date: msg.date || new Date().getTime(),
-        })
-  
-        }
-        if(msg.destiny === username){
-          !cache[msg.author]?cache[msg.author] = []:null
-          cache[msg.author].push({
-            position: 'left',
-            type: 'text',
-            text: msg.content,
-            date: msg.date || new Date(),
-        })
-        }
-      })
       socket.emit('PreviousEmits', {
         speechesList,
         posts,
@@ -110,7 +95,6 @@ async function main(){
         Docs,
       })
       socket.emit("setPrivateDocs", privateDocs)
-      socket.emit('setCache', cache)
     })
 
     //Conexão
@@ -138,68 +122,47 @@ async function main(){
     users.map(res=>res.representation_type === 'Delegado' ? delegates.push(res) : null)
 
     //Chat
-    socket.on('sendMessage', ({author, destiny, content, date})=>{
+    socket.on('sendMessage', ({author, destiny})=>{
       console.log('sendMessage')
       const Destiny = getCurrentUser(destiny)
-      messages.push({author, destiny, content, date})
-      api.post('/create/messages', {author, destiny, content, date}).catch(err=>console.log(err))
       if(!Destiny){
         return
       }
-      const Messages = []
-      messages.map(msg=>{
-        if(msg.author === destiny && msg.destiny === author){
-          Messages.push({
-            position: 'right',
-            type: 'text',
-            text: msg.content,
-            date: msg.date || new Date().getTime(),
-        },)
-        }
-        if(msg.destiny === destiny && msg.author === author){
-          Messages.push({
-            position: 'left',
-            type: 'text',
-            text: msg.content,
-            date: msg.date || new Date(),
-        })
-        }
-      })
-      socket.to(Destiny.id).emit('newMessage', {author, Messages})
+      socket.to(Destiny.id).emit('newMessage', {author})
     })
-    socket.on('changeContat', ({contat, user, cache})=>{
-      console.log('changeContat')
-      let Messages = []
-      if(!user){
-        console.log('user is null')
-        return
-      }
-      messages.map(msg=>{
-        if(msg.author === user && msg.destiny === contat){
-          Messages.push({
-            position: 'right',
-            type: 'text',
-            text: msg.content,
-            date: msg.date || new Date().getTime(),
-        },)
-        }
-        if(msg.destiny === user && msg.author === contat){
-          Messages.push({
-            position: 'left',
-            type: 'text',
-            text: msg.content,
-            date: msg.date || new Date(),
-        })
-        }
-      })
-      if(!cache){
-        cache = []
-      }
-      if(Messages.length !== cache.length){
-        socket.emit('setMessages', {contat, Messages})
-      }
+    // socket.on('changeContat', ({contat, user, cache})=>{
+    //   console.log('changeContat')
+    //   let Messages = []
+    //   if(!user){
+    //     console.log('user is null')
+    //     return
+    //   }
+    //   messages.map(msg=>{
+    //     if(msg.author === user && msg.destiny === contat){
+    //       Messages.push({
+    //         position: 'right',
+    //         type: 'text',
+    //         text: msg.content,
+    //         date: msg.date || new Date().getTime(),
+    //     },)
+    //     }
+    //     if(msg.destiny === user && msg.author === contat){
+    //       Messages.push({
+    //         position: 'left',
+    //         type: 'text',
+    //         text: msg.content,
+    //         date: msg.date || new Date(),
+    //     })
+    //     }
+    //   })
+    //   if(!cache){
+    //     cache = []
+    //   }
+    //   if(Messages.length !== cache.length){
+    //     socket.emit('setMessages', {contat, Messages})
+    //   }
 
-    })
+    // })
 
 
 
@@ -347,12 +310,12 @@ async function main(){
       api.post('/create/users', user).catch(err=>console.log(err))
     })
 
-    socket.on('login', user=>{
-      console.log('login')
-      api.post('/auth', user).then(res=>{
-        socket.emit('login', res.data)
-      }).catch(err=>console.log(err))
-    })
+    // socket.on('login', user=>{
+    //   console.log('login')
+    //   api.post('/auth', user).then(res=>{
+    //     socket.emit('login', res.data)
+    //   }).catch(err=>console.log(err))
+    // })
     socket.on('getUsers', ()=>{
       console.log('getUsers')
       socket.emit('getUsers', users)
@@ -368,6 +331,7 @@ async function main(){
       }
       speaker = participant.displayName
       console.log(speaker)
+      joinApplauses(aplausos)
       updatePoints()
     })
     socket.on("aplauso", ()=>{
@@ -436,7 +400,6 @@ async function main(){
       socket.emit('getDelegates', delegates)
     }).catch(err=>console.log(err))
   })
-  socket.on('joinApplauses', ()=>{joinApplauses(aplausos)})
   function joinApplauses(applauses){
     console.log('joinApplauses')
     const joinApplauses = []
