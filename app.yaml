@@ -1,3 +1,7 @@
-runtime: nodejs14
-
+runtime: nodejs
+env: flex
+manual_scaling:
+  instances: 3
+network:
+  session_affinity: true
 
